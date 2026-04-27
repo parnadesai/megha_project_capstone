@@ -212,13 +212,16 @@ def load_and_preprocess():
     df['smoking_status'].replace({'formerly smoked': 0, 'never smoked': 1, 'smokes': 2, 'Unknown': 3}, inplace=True)
     df['work_type'].replace({'Private': 0, 'Self-employed': 1, 'children': 2, 'Govt_job': 3, 'Never_worked': 4}, inplace=True)
     df['age'] = pd.cut(x=df['age'], bins=[0, 12, 19, 30, 60, 100], labels=[0, 1, 2, 3, 4])
-    df['age'] = df['age'].astype(int)
+    df['age'] = df['age'].cat.codes  # safely convert Categorical to int (-1 for NaN)
+    df['age'] = df['age'].replace(-1, 4)  # fallback: assign seniors if bin missed
+    # Ensure every column is a plain numeric dtype sklearn can consume
+    df = df.apply(pd.to_numeric, errors='coerce').fillna(0).astype(float)
     return df
  
 @st.cache_resource
 def train_models(df):
-    X = df.drop('stroke', axis=1)
-    y = df['stroke']
+    X = df.drop('stroke', axis=1).astype(float)
+    y = df['stroke'].astype(int)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
  
     models = {
@@ -493,4 +496,3 @@ with tab3:
     with st.expander("📋 View Raw Data Sample"):
         raw_df = pd.read_csv('healthcare-dataset-stroke-data.csv')
         st.dataframe(raw_df.head(20), use_container_width=True)
- 
